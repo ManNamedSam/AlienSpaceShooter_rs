@@ -7,6 +7,7 @@ use crate::{
 
 const PLAYER_SPEED: f32 = 250.0;
 const PLAYER_RELOAD: f32 = 12.0;
+const PLAYER_BULLET_SPEED: f32 = 500.0;
 
 #[derive(Component, Debug)]
 pub struct Reload {
@@ -97,7 +98,7 @@ fn spawn_player_bullet(
                 ..default()
             },
             PlayerBullet,
-            Velocity::new(Vec3::new(500.0, 0.0, 0.0)),
+            Velocity::new(Vec3::new(PLAYER_BULLET_SPEED, 0.0, 0.0)),
             Position::new(position.value),
         ));
         reload.value = PLAYER_RELOAD;

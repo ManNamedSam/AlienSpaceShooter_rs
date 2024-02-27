@@ -4,6 +4,9 @@ use bevy::prelude::*;
 pub struct SceneAssets {
     pub player: Handle<Image>,
     pub player_bullet: Handle<Image>,
+    pub background: Handle<Image>,
+    pub alien: Handle<Image>,
+    pub alien_bullet: Handle<Image>,
 }
 
 pub struct SceneLoaderPlugin;
@@ -24,5 +27,8 @@ fn load_assets(
     *scene_assets = SceneAssets {
         player: asset_server.load("craft.png"),
         player_bullet: asset_server.load("playerBullet.png"),
+        background: asset_server.load("background.png"),
+        alien: asset_server.load("alien.png"),
+        alien_bullet: asset_server.load("alienBullet.png"),
     };
 }

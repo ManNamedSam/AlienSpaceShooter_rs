@@ -33,20 +33,28 @@ impl Plugin for MovementPlugin {
 fn update_position(
     time: Res<Time>,
     window: Query<&Window>,
-    mut query: Query<(&Velocity, &mut Position, &mut Transform, Entity)>,
+    mut query: Query<(
+        &Velocity,
+        &mut Position,
+        &mut Transform,
+        Entity,
+        &Handle<Image>,
+    )>,
     mut commands: Commands,
+    assets: Res<Assets<Image>>,
 ) {
     let window = window.single();
-    for (velocity, mut position, mut transform, entity) in query.iter_mut() {
+    for (velocity, mut position, mut transform, entity, image_handle) in query.iter_mut() {
         transform.translation += velocity.value * time.delta_seconds();
         position.value = transform.translation;
+        let image_size = assets.get(image_handle).unwrap().size_f32();
 
-        if position.value.x > window.width() / 2.0
-            || position.value.x < -window.width() / 2.0
-            || position.value.y > window.height() / 2.0
-            || position.value.y < -window.height() / 2.0
+        if position.value.x > (window.width() / 2.0) + (image_size.x / 2.0)
+            || position.value.x < (-window.width() / 2.0) - (image_size.x / 2.0)
+            || position.value.y > (window.height() / 2.0) + (image_size.y / 2.0)
+            || position.value.y < (-window.height() / 2.0) - (image_size.y / 2.0)
         {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         }
     }
 }
