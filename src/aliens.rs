@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use rand::Rng;
 
 use crate::{
-    fighter::{Player, Reload},
+    collisions::Collider,
+    fighter::{Player, Reload, Team},
     movement::{Position, Velocity},
     scene::SceneAssets,
 };
@@ -22,8 +23,10 @@ pub struct AliensPlugin;
 
 impl Plugin for AliensPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<AlienRespawnTimer>()
-            .add_systems(Update, (spawn_aliens, spawn_alien_bullets));
+        app.init_resource::<AlienRespawnTimer>().add_systems(
+            Update,
+            (spawn_aliens, spawn_alien_bullets, handle_alien_collisions),
+        );
     }
 }
 
@@ -52,6 +55,8 @@ fn spawn_aliens(
             Velocity::new(Vec3::new(-alien_speed, 0.0, 0.0)),
             Reload::new(rand::random::<f32>() * 120.0),
             Alien,
+            Collider::new(100.0),
+            Team::new(0),
         ));
         spawn_timer.value = rand::random::<f32>() * 150.0;
     }
@@ -86,6 +91,8 @@ fn spawn_alien_bullets(
                     calculate_slope(&position.value, &player_position.value) * ALIEN_BULLET_SPEED,
                 ),
                 Position::new(position.value),
+                Collider::new(10.0),
+                Team::new(0),
             ));
             reload.value = rand::random::<f32>() * 180.0;
         }
@@ -100,4 +107,17 @@ fn calculate_slope(position_from: &Vec3, position_to: &Vec3) -> Vec3 {
         return Vec3::new(0.0, 0.0, 0.0);
     }
     (position_to.clone() - position_from.clone()) / steps
+}
+
+fn handle_alien_collisions(mut commands: Commands, query: Query<(Entity, &Collider), With<Alien>>) {
+    for (entity, collider) in query.iter() {
+        for &collided_entity in collider.colliding_entities.iter() {
+            // Asteroid collided with another asteroid.
+            if query.get(collided_entity).is_ok() {
+                continue;
+            }
+            // Despawn the asteroid.
+            commands.entity(entity).despawn_recursive();
+        }
+    }
 }

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
+    collisions::Collider,
     movement::{Position, Velocity},
     scene::SceneAssets,
 };
@@ -28,6 +29,17 @@ pub struct PlayerBullet;
 
 pub struct FighterPlugin;
 
+#[derive(Component, Debug)]
+pub struct Team {
+    pub value: u8,
+}
+
+impl Team {
+    pub fn new(team: u8) -> Self {
+        Self { value: team }
+    }
+}
+
 impl Plugin for FighterPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player)
@@ -45,6 +57,8 @@ fn spawn_player(mut commands: Commands, scene_assets: Res<SceneAssets>) {
         Player,
         Position::new(Vec3::new(0., 0., 0.)),
         Reload::new(PLAYER_RELOAD),
+        Collider::new(100.0),
+        Team::new(1),
     ));
 }
 
@@ -100,6 +114,8 @@ fn spawn_player_bullet(
             PlayerBullet,
             Velocity::new(Vec3::new(PLAYER_BULLET_SPEED, 0.0, 0.0)),
             Position::new(position.value),
+            Collider::new(10.0),
+            Team::new(1),
         ));
         reload.value = PLAYER_RELOAD;
     }

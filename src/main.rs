@@ -1,4 +1,5 @@
 mod aliens;
+mod collisions;
 mod fighter;
 mod movement;
 mod scene;
@@ -6,6 +7,7 @@ mod scene;
 use bevy::prelude::*;
 
 use aliens::AliensPlugin;
+use collisions::CollisionDetectionPlugin;
 use fighter::FighterPlugin;
 use movement::MovementPlugin;
 use scene::SceneLoaderPlugin;
@@ -17,5 +19,6 @@ fn main() {
         .add_plugins(MovementPlugin)
         .add_plugins(FighterPlugin)
         .add_plugins(AliensPlugin)
+        .add_plugins(CollisionDetectionPlugin)
         .run();
 }
