@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::{
     collisions::Collider,
     movement::{Position, Velocity},
-    scene::SceneAssets,
+    scene::{SceneAssets, Size},
 };
 
 const PLAYER_SPEED: f32 = 250.0;
@@ -42,22 +42,30 @@ impl Team {
 
 impl Plugin for FighterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player)
-            .add_systems(Update, (player_movement, spawn_player_bullet));
+        app.add_systems(PostStartup, spawn_player).add_systems(
+            Update,
+            (
+                player_movement,
+                spawn_player_bullet,
+                handle_player_collisions,
+                handle_player_bullet_collisions,
+            ),
+        );
     }
 }
 
 fn spawn_player(mut commands: Commands, scene_assets: Res<SceneAssets>) {
     commands.spawn((
         SpriteBundle {
-            texture: scene_assets.player.clone_weak(),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            texture: scene_assets.player.image.clone_weak(),
+            transform: Transform::from_xyz(0.0, 0.0, 1.0),
             ..default()
         },
         Player,
         Position::new(Vec3::new(0., 0., 0.)),
         Reload::new(PLAYER_RELOAD),
-        Collider::new(100.0),
+        Collider::new(Size::new(scene_assets.player.dimensions)),
+        Size::new(scene_assets.player.dimensions),
         Team::new(1),
     ));
 }
@@ -67,27 +75,28 @@ fn player_movement(
     mut query: Query<(&mut Transform, &mut Position), With<Player>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let (mut transform, mut position) = query.single_mut();
-    let mut direction_x = 0.0;
-    let mut direction_y = 0.0;
+    if let Ok((mut transform, mut position)) = query.get_single_mut() {
+        let mut direction_x = 0.0;
+        let mut direction_y = 0.0;
 
-    if keyboard_input.pressed(KeyCode::ArrowLeft) {
-        direction_x -= 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::ArrowRight) {
-        direction_x += 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::ArrowDown) {
-        direction_y -= 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::ArrowUp) {
-        direction_y += 1.0;
-    }
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
+            direction_x -= 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
+            direction_x += 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::ArrowDown) {
+            direction_y -= 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
+            direction_y += 1.0;
+        }
 
-    position.value.x += direction_x * PLAYER_SPEED * time.delta_seconds();
-    position.value.y += direction_y * PLAYER_SPEED * time.delta_seconds();
+        position.value.x += direction_x * PLAYER_SPEED * time.delta_seconds();
+        position.value.y += direction_y * PLAYER_SPEED * time.delta_seconds();
 
-    transform.translation = position.value;
+        transform.translation = position.value;
+    }
 }
 
 fn spawn_player_bullet(
@@ -97,26 +106,59 @@ fn spawn_player_bullet(
     mut commands: Commands,
     scene_assets: Res<SceneAssets>,
 ) {
-    let (position, mut reload) = query.single_mut();
+    if let Ok((position, mut reload)) = query.get_single_mut() {
+        reload.value -= 60.0 * time.delta_seconds();
 
-    reload.value -= 60.0 * time.delta_seconds();
+        if (keyboard_input.pressed(KeyCode::ControlRight)
+            || keyboard_input.pressed(KeyCode::ControlLeft))
+            && reload.value <= 0.0
+        {
+            commands.spawn((
+                SpriteBundle {
+                    texture: scene_assets.player_bullet.image.clone_weak(),
+                    transform: Transform::from_translation(position.value),
+                    ..default()
+                },
+                PlayerBullet,
+                Velocity::new(Vec3::new(PLAYER_BULLET_SPEED, 0.0, 0.0)),
+                Position::new(position.value),
+                Collider::new(Size::new(scene_assets.player_bullet.dimensions)),
+                Size::new(scene_assets.player_bullet.dimensions),
+                Team::new(1),
+            ));
+            reload.value = PLAYER_RELOAD;
+        }
+    }
+}
 
-    if (keyboard_input.pressed(KeyCode::ControlRight)
-        || keyboard_input.pressed(KeyCode::ControlLeft))
-        && reload.value <= 0.0
-    {
-        commands.spawn((
-            SpriteBundle {
-                texture: scene_assets.player_bullet.clone_weak(),
-                transform: Transform::from_translation(position.value),
-                ..default()
-            },
-            PlayerBullet,
-            Velocity::new(Vec3::new(PLAYER_BULLET_SPEED, 0.0, 0.0)),
-            Position::new(position.value),
-            Collider::new(10.0),
-            Team::new(1),
-        ));
-        reload.value = PLAYER_RELOAD;
+fn handle_player_collisions(
+    mut commands: Commands,
+    query: Query<(Entity, &Collider), With<Player>>,
+) {
+    for (entity, collider) in query.iter() {
+        for &collided_entity in collider.colliding_entities.iter() {
+            // Asteroid collided with another asteroid.
+            if query.get(collided_entity).is_ok() {
+                continue;
+            }
+            // Despawn the asteroid.
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
+fn handle_player_bullet_collisions(
+    mut commands: Commands,
+    query: Query<(Entity, &Collider), With<PlayerBullet>>,
+) {
+    for (entity, collider) in query.iter() {
+        for &collided_entity in collider.colliding_entities.iter() {
+            // Asteroid collided with another asteroid.
+            if query.get(collided_entity).is_ok() {
+                continue;
+            }
+            // Despawn the asteroid.
+            commands.entity(entity).despawn_recursive();
+        }
     }
 }

@@ -1,17 +1,17 @@
 use bevy::{prelude::*, utils::HashMap};
 
-use crate::fighter::Team;
+use crate::{fighter::Team, scene::Size};
 
 #[derive(Component, Debug)]
 pub struct Collider {
-    pub radius: f32,
+    pub size: Size,
     pub colliding_entities: Vec<Entity>,
 }
 
 impl Collider {
-    pub fn new(radius: f32) -> Self {
+    pub fn new(size: Size) -> Self {
         Self {
-            radius,
+            size,
             colliding_entities: vec![],
         }
     }
@@ -31,10 +31,14 @@ fn collision_detection(mut query: Query<(Entity, &GlobalTransform, &mut Collider
     for (entiity_a, transform_a, collider_a, team_a) in query.iter() {
         for (entity_b, transform_b, collider_b, team_b) in query.iter() {
             if entiity_a != entity_b && team_a.value != team_b.value {
-                let distance = transform_a
-                    .translation()
-                    .distance(transform_b.translation());
-                if distance < collider_a.radius + collider_b.radius {
+                let distance = (transform_a.translation() - transform_b.translation()).abs();
+
+                // let distance = transform_a
+                //     .translation()
+                //     .distance(transform_b.translation());
+                if distance.x < collider_a.size.value.x / 2.0 + collider_b.size.value.x / 2.0
+                    && distance.y < collider_a.size.value.y / 2.0 + collider_b.size.value.y / 2.0
+                {
                     colliding_entities
                         .entry(entiity_a)
                         .or_insert_with(Vec::new)
