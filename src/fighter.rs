@@ -4,6 +4,7 @@ use crate::{
     collisions::Collider,
     movement::{Position, Velocity},
     scene::{SceneAssets, Size},
+    AppState,
 };
 
 const PLAYER_SPEED: f32 = 250.0;
@@ -40,17 +41,41 @@ impl Team {
     }
 }
 
+#[derive(Component, Debug)]
+pub struct IsBullet {
+    pub value: bool,
+}
+
+impl IsBullet {
+    pub fn new(is_bullet: bool) -> Self {
+        Self { value: is_bullet }
+    }
+}
+
+#[derive(Component, Debug)]
+pub struct GameOverCountdown {
+    pub value: f32,
+}
+
+impl GameOverCountdown {
+    pub fn new() -> Self {
+        Self { value: 2.0 }
+    }
+}
+
 impl Plugin for FighterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostStartup, spawn_player).add_systems(
-            Update,
-            (
-                player_movement,
-                spawn_player_bullet,
-                handle_player_collisions,
-                handle_player_bullet_collisions,
-            ),
-        );
+        app.add_systems(OnEnter(AppState::Game), spawn_player)
+            .add_systems(
+                Update,
+                (
+                    player_movement,
+                    spawn_player_bullet,
+                    handle_player_collisions,
+                    handle_player_bullet_collisions,
+                )
+                    .run_if(in_state(AppState::Game)),
+            );
     }
 }
 
@@ -67,6 +92,7 @@ fn spawn_player(mut commands: Commands, scene_assets: Res<SceneAssets>) {
         Collider::new(Size::new(scene_assets.player.dimensions)),
         Size::new(scene_assets.player.dimensions),
         Team::new(1),
+        IsBullet::new(false),
     ));
 }
 
@@ -109,10 +135,7 @@ fn spawn_player_bullet(
     if let Ok((position, mut reload)) = query.get_single_mut() {
         reload.value -= 60.0 * time.delta_seconds();
 
-        if (keyboard_input.pressed(KeyCode::ControlRight)
-            || keyboard_input.pressed(KeyCode::ControlLeft))
-            && reload.value <= 0.0
-        {
+        if keyboard_input.pressed(KeyCode::KeyF) && reload.value <= 0.0 {
             commands.spawn((
                 SpriteBundle {
                     texture: scene_assets.player_bullet.image.clone_weak(),
@@ -125,6 +148,7 @@ fn spawn_player_bullet(
                 Collider::new(Size::new(scene_assets.player_bullet.dimensions)),
                 Size::new(scene_assets.player_bullet.dimensions),
                 Team::new(1),
+                IsBullet::new(true),
             ));
             reload.value = PLAYER_RELOAD;
         }
@@ -143,6 +167,7 @@ fn handle_player_collisions(
             }
             // Despawn the asteroid.
             commands.entity(entity).despawn_recursive();
+            commands.spawn(GameOverCountdown::new());
         }
     }
 }

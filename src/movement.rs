@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+use crate::AppState;
+
 #[derive(Component, Debug)]
 pub struct Position {
     pub value: Vec3,
@@ -26,7 +28,7 @@ pub struct MovementPlugin;
 
 impl Plugin for MovementPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, update_position);
+        app.add_systems(Update, update_position.run_if(in_state(AppState::Game)));
     }
 }
 

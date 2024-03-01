@@ -2,9 +2,10 @@ use bevy::prelude::*;
 
 use crate::{
     collisions::Collider,
-    fighter::{Player, Reload, Team},
+    fighter::{IsBullet, Player, Reload, Team},
     movement::{Position, Velocity},
     scene::{SceneAssets, Size},
+    AppState,
 };
 
 #[derive(Resource, Debug, Default)]
@@ -29,7 +30,8 @@ impl Plugin for AliensPlugin {
                 spawn_alien_bullets,
                 handle_alien_collisions,
                 handle_alien_bullet_collisions,
-            ),
+            )
+                .run_if(in_state(AppState::Game)),
         );
     }
 }
@@ -60,6 +62,7 @@ fn spawn_aliens(
             Collider::new(Size::new(scene_assets.alien.dimensions)),
             Size::new(scene_assets.alien.dimensions),
             Team::new(0),
+            IsBullet::new(false),
         ));
         spawn_timer.value = rand::random::<f32>() * 150.0;
     }
@@ -98,6 +101,7 @@ fn spawn_alien_bullets(
                     Collider::new(Size::new(scene_assets.alien_bullet.dimensions)),
                     Size::new(scene_assets.alien_bullet.dimensions),
                     Team::new(0),
+                    IsBullet::new(true),
                 ));
                 reload.value = rand::random::<f32>() * 180.0;
             }
