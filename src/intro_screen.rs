@@ -54,9 +54,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             );
             parent.spawn(TextBundle {
                 text: Text::from_section(
-                    String::from("PRESS FIRE (F) TO PLAY!"),
+                    String::from("\nPRESS FIRE ( F ) TO PLAY!"),
                     text_style.clone(),
                 ),
+                style: Style {
+                    padding: UiRect::all(Val::Px(50.0)),
+                    ..default()
+                },
                 ..default()
             });
         });

@@ -2,9 +2,11 @@ use bevy::prelude::*;
 
 use crate::{
     collisions::Collider,
+    explosions::Explosion,
     fighter::{IsBullet, Player, Reload, Team},
+    hud::CurrentScore,
     movement::{Position, Velocity},
-    scene::{SceneAssets, Size},
+    scene::{SceneAssets, SceneSounds, Size},
     AppState,
 };
 
@@ -76,6 +78,7 @@ fn spawn_alien_bullets(
     player_query: Query<&Position, With<Player>>,
     mut aliens_query: Query<(&Position, &mut Reload), With<Alien>>,
     scene_assets: Res<SceneAssets>,
+    scene_sounds: Res<SceneSounds>,
 ) {
     if let Ok(player_position) = player_query.get_single() {
         for (position, mut reload) in aliens_query.iter_mut() {
@@ -104,6 +107,15 @@ fn spawn_alien_bullets(
                     IsBullet::new(true),
                 ));
                 reload.value = rand::random::<f32>() * 180.0;
+
+                commands.spawn(AudioBundle {
+                    source: scene_sounds.alien_fire.clone(),
+                    settings: PlaybackSettings {
+                        mode: bevy::audio::PlaybackMode::Remove,
+                        ..default()
+                    },
+                    ..default()
+                });
             }
         }
     }
@@ -119,15 +131,57 @@ fn calculate_slope(position_from: &Vec3, position_to: &Vec3) -> Vec3 {
     (position_to.clone() - position_from.clone()) / steps
 }
 
-fn handle_alien_collisions(mut commands: Commands, query: Query<(Entity, &Collider), With<Alien>>) {
-    for (entity, collider) in query.iter() {
+fn handle_alien_collisions(
+    mut commands: Commands,
+    query: Query<(Entity, &Collider, &Position), With<Alien>>,
+    scene_sounds: Res<SceneSounds>,
+    scene_assets: Res<SceneAssets>,
+    mut score: ResMut<CurrentScore>,
+) {
+    for (entity, collider, position) in query.iter() {
         for &collided_entity in collider.colliding_entities.iter() {
             // Asteroid collided with another asteroid.
             if query.get(collided_entity).is_ok() {
                 continue;
             }
-            // Despawn the asteroid.
+
+            for _ in 0..30 {
+                let explosion = Explosion::new(position.value.x, position.value.y);
+
+                let image = scene_assets.explosion.image.clone();
+
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::Rgba {
+                                red: explosion.r,
+                                green: explosion.g,
+                                blue: explosion.b,
+                                alpha: explosion.a,
+                            },
+                            ..default()
+                        },
+                        texture: image,
+                        transform: Transform::from_xyz(explosion.x, explosion.y, 0.0),
+                        ..default()
+                    },
+                    Velocity::new(Vec3::new(explosion.dx, explosion.dy, 0.0)),
+                    Position::new(Vec3::new(explosion.x, explosion.y, 0.0)),
+                    explosion,
+                ));
+            }
+            // Despawn the alien.
             commands.entity(entity).despawn_recursive();
+
+            commands.spawn(AudioBundle {
+                source: scene_sounds.alien_dies.clone(),
+                settings: PlaybackSettings {
+                    mode: bevy::audio::PlaybackMode::Remove,
+                    ..default()
+                },
+                ..default()
+            });
+            score.value += 1;
         }
     }
 }

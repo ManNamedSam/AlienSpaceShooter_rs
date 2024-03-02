@@ -2,8 +2,10 @@ use bevy::prelude::*;
 
 use crate::{
     collisions::Collider,
+    explosions::Explosion,
+    hud::CurrentScore,
     movement::{Position, Velocity},
-    scene::{SceneAssets, Size},
+    scene::{SceneAssets, SceneSounds, Size},
     AppState,
 };
 
@@ -98,8 +100,10 @@ fn spawn_player(mut commands: Commands, scene_assets: Res<SceneAssets>) {
 
 fn player_movement(
     time: Res<Time>,
+    window: Query<&Window>,
     mut query: Query<(&mut Transform, &mut Position), With<Player>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    scene_assets: Res<SceneAssets>,
 ) {
     if let Ok((mut transform, mut position)) = query.get_single_mut() {
         let mut direction_x = 0.0;
@@ -120,6 +124,31 @@ fn player_movement(
 
         position.value.x += direction_x * PLAYER_SPEED * time.delta_seconds();
         position.value.y += direction_y * PLAYER_SPEED * time.delta_seconds();
+        let window = window.single();
+        if position.value.x
+            < -(window.width() / 2.0 - scene_assets.player.dimensions.0 as f32 / 2.0)
+        {
+            position.value.x =
+                -(window.width() / 2.0 - scene_assets.player.dimensions.0 as f32 / 2.0);
+        }
+
+        if position.value.x > 0.0 {
+            position.value.x = 0.0;
+        }
+
+        if position.value.y
+            < -(window.height() / 2.0 - scene_assets.player.dimensions.1 as f32 / 2.0)
+        {
+            position.value.y =
+                -(window.height() / 2.0 - scene_assets.player.dimensions.1 as f32 / 2.0);
+        }
+
+        if position.value.y
+            > (window.height() / 2.0 - scene_assets.player.dimensions.1 as f32 / 2.0)
+        {
+            position.value.y =
+                (window.height() / 2.0 - scene_assets.player.dimensions.1 as f32 / 2.0);
+        }
 
         transform.translation = position.value;
     }
@@ -131,6 +160,7 @@ fn spawn_player_bullet(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
     scene_assets: Res<SceneAssets>,
+    scene_sounds: Res<SceneSounds>,
 ) {
     if let Ok((position, mut reload)) = query.get_single_mut() {
         reload.value -= 60.0 * time.delta_seconds();
@@ -151,22 +181,68 @@ fn spawn_player_bullet(
                 IsBullet::new(true),
             ));
             reload.value = PLAYER_RELOAD;
+
+            commands.spawn(AudioBundle {
+                source: scene_sounds.player_fire.clone(),
+                settings: PlaybackSettings {
+                    mode: bevy::audio::PlaybackMode::Remove,
+                    ..default()
+                },
+                ..default()
+            });
         }
     }
 }
 
 fn handle_player_collisions(
     mut commands: Commands,
-    query: Query<(Entity, &Collider), With<Player>>,
+    query: Query<(Entity, &Collider, &Position), With<Player>>,
+    scene_sounds: Res<SceneSounds>,
+    scene_assets: Res<SceneAssets>,
 ) {
-    for (entity, collider) in query.iter() {
+    for (entity, collider, position) in query.iter() {
         for &collided_entity in collider.colliding_entities.iter() {
             // Asteroid collided with another asteroid.
             if query.get(collided_entity).is_ok() {
                 continue;
             }
-            // Despawn the asteroid.
+
+            for _ in 0..30 {
+                let explosion = Explosion::new(position.value.x, position.value.y);
+
+                let image = scene_assets.explosion.image.clone();
+
+                commands.spawn((
+                    SpriteBundle {
+                        sprite: Sprite {
+                            color: Color::Rgba {
+                                red: explosion.r,
+                                green: explosion.g,
+                                blue: explosion.b,
+                                alpha: explosion.a,
+                            },
+                            ..default()
+                        },
+                        texture: image,
+                        transform: Transform::from_xyz(explosion.x, explosion.y, 0.0),
+                        ..default()
+                    },
+                    Velocity::new(Vec3::new(explosion.dx, explosion.dy, 0.0)),
+                    Position::new(Vec3::new(explosion.x, explosion.y, 0.0)),
+                    explosion,
+                ));
+            }
+
+            // Despawn the player.
             commands.entity(entity).despawn_recursive();
+            commands.spawn(AudioBundle {
+                source: scene_sounds.player_dies.clone(),
+                settings: PlaybackSettings {
+                    mode: bevy::audio::PlaybackMode::Remove,
+                    ..default()
+                },
+                ..default()
+            });
             commands.spawn(GameOverCountdown::new());
         }
     }

@@ -2,7 +2,6 @@ use std::path::Path;
 
 use bevy::{
     prelude::*,
-    render::view::window,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::EnabledButtons,
 };
@@ -11,6 +10,7 @@ use image::io::Reader;
 use crate::{
     aliens::{Alien, AlienBullet},
     fighter::{GameOverCountdown, PlayerBullet},
+    hud::CurrentScore,
     movement::{Position, Velocity},
     AppState,
 };
@@ -25,6 +25,15 @@ pub struct SceneAssets {
     pub background: ImageBox,
     pub alien: ImageBox,
     pub alien_bullet: ImageBox,
+    pub explosion: ImageBox,
+}
+
+#[derive(Resource, Debug, Default)]
+pub struct SceneSounds {
+    pub player_fire: Handle<AudioSource>,
+    pub player_dies: Handle<AudioSource>,
+    pub alien_fire: Handle<AudioSource>,
+    pub alien_dies: Handle<AudioSource>,
 }
 
 #[derive(Debug, Default)]
@@ -56,7 +65,11 @@ pub struct SceneLoaderPlugin;
 impl Plugin for SceneLoaderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SceneAssets>()
-            .add_systems(Startup, (load_assets, load_background, load_stars).chain())
+            .init_resource::<SceneSounds>()
+            .add_systems(
+                Startup,
+                (load_assets, load_background, load_stars, music).chain(),
+            )
             .add_systems(Update, (scroll_background, handle_stars))
             .add_systems(
                 Update,
@@ -70,6 +83,7 @@ fn load_assets(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut scene_assets: ResMut<SceneAssets>,
+    mut scene_sounds: ResMut<SceneSounds>,
 ) {
     commands.spawn(Camera2dBundle::default());
     let player = ImageBox {
@@ -108,6 +122,13 @@ fn load_assets(
             .into_dimensions()
             .unwrap(),
     };
+    let explosion = ImageBox {
+        image: asset_server.load("explosion.png"),
+        dimensions: Reader::open(Path::new("assets/explosion.png"))
+            .unwrap()
+            .into_dimensions()
+            .unwrap(),
+    };
 
     *scene_assets = SceneAssets {
         player,
@@ -115,7 +136,15 @@ fn load_assets(
         background,
         alien,
         alien_bullet,
+        explosion,
     };
+
+    *scene_sounds = SceneSounds {
+        player_fire: asset_server.load("sounds/playerFire.ogg"),
+        player_dies: asset_server.load("sounds/playerDies.ogg"),
+        alien_fire: asset_server.load("sounds/alienFire.ogg"),
+        alien_dies: asset_server.load("sounds/alienDies.ogg"),
+    }
 }
 
 fn load_background(
@@ -226,6 +255,7 @@ fn game_over_countdown_timer(
     time: Res<Time>,
     mut next_state: ResMut<NextState<AppState>>,
     mut query: Query<(Entity, &mut GameOverCountdown)>,
+    mut score: ResMut<CurrentScore>,
 ) {
     if let Ok((entity, mut timer)) = query.get_single_mut() {
         timer.value -= time.delta_seconds();
@@ -233,6 +263,7 @@ fn game_over_countdown_timer(
         if timer.value < 0.0 {
             next_state.set(AppState::IntroScreen);
             commands.entity(entity).despawn_recursive();
+            score.reset();
         }
     }
 }
@@ -254,4 +285,15 @@ fn despawn_scene(
     for entity in alien_bullets_query.iter() {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+fn music(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("music/alienSpaceShooter.ogg"),
+        settings: PlaybackSettings {
+            mode: bevy::audio::PlaybackMode::Loop,
+            ..default()
+        },
+        ..default()
+    });
 }
