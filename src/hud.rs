@@ -135,6 +135,7 @@ fn update_highscore_score(
     for mut text in text_query.iter_mut() {
         text.sections[1].value = format!("{}", highscore.value.to_string());
         if highscore.is_changed() {
+            text.sections[0].style.color = Color::GREEN;
             text.sections[1].style.color = Color::GREEN;
         }
     }

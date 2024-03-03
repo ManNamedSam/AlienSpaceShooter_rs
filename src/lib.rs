@@ -7,10 +7,7 @@ mod intro_screen;
 mod movement;
 mod scene;
 
-use bevy::{
-    audio::{AudioPlugin, SpatialScale, Volume},
-    prelude::*,
-};
+use bevy::prelude::*;
 
 use aliens::AliensPlugin;
 use collisions::CollisionDetectionPlugin;

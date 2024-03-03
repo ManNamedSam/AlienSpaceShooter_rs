@@ -1,11 +1,9 @@
-use std::path::Path;
-
 use bevy::{
+    audio::Volume,
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
     window::EnabledButtons,
 };
-use image::io::Reader;
 
 use crate::{
     aliens::{Alien, AlienBullet},
@@ -22,7 +20,7 @@ const MAX_STARS: u32 = 500;
 pub struct SceneAssets {
     pub player: ImageBox,
     pub player_bullet: ImageBox,
-    pub background: ImageBox,
+    // pub background: ImageBox,
     pub alien: ImageBox,
     pub alien_bullet: ImageBox,
     pub explosion: ImageBox,
@@ -66,10 +64,7 @@ impl Plugin for SceneLoaderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SceneAssets>()
             .init_resource::<SceneSounds>()
-            .add_systems(
-                Startup,
-                (load_assets, load_background, load_stars, music).chain(),
-            )
+            .add_systems(Startup, (load_assets, load_background, load_stars, music))
             .add_systems(Update, (scroll_background, handle_stars))
             .add_systems(
                 Update,
@@ -88,69 +83,57 @@ fn load_assets(
     commands.spawn(Camera2dBundle::default());
     let player = ImageBox {
         image: asset_server.load("craft.png"),
-        dimensions: Reader::open(Path::new("assets/craft.png"))
-            .unwrap()
-            .into_dimensions()
-            .unwrap(),
+        dimensions: (75, 33),
     };
     let player_bullet = ImageBox {
         image: asset_server.load("playerBullet.png"),
-        dimensions: Reader::open(Path::new("assets/playerBullet.png"))
-            .unwrap()
-            .into_dimensions()
-            .unwrap(),
+        dimensions: (26, 9),
     };
-    let background = ImageBox {
-        image: asset_server.load("background.png"),
-        dimensions: Reader::open(Path::new("assets/background.png"))
-            .unwrap()
-            .into_dimensions()
-            .unwrap(),
-    };
+    // let background = ImageBox {
+    //     image: asset_server.load("background_space.png"),
+    //     dimensions: (1104, 1021),
+    // };
     let alien = ImageBox {
         image: asset_server.load("alien.png"),
-        dimensions: Reader::open(Path::new("assets/alien.png"))
-            .unwrap()
-            .into_dimensions()
-            .unwrap(),
+        dimensions: (72, 34),
     };
 
     let alien_bullet = ImageBox {
         image: asset_server.load("alienBullet.png"),
-        dimensions: Reader::open(Path::new("assets/alienBullet.png"))
-            .unwrap()
-            .into_dimensions()
-            .unwrap(),
+        dimensions: (11, 11),
     };
     let explosion = ImageBox {
         image: asset_server.load("explosion.png"),
-        dimensions: Reader::open(Path::new("assets/explosion.png"))
-            .unwrap()
-            .into_dimensions()
-            .unwrap(),
+        dimensions: (96, 96),
     };
 
     *scene_assets = SceneAssets {
         player,
         player_bullet,
-        background,
+        // background,
         alien,
         alien_bullet,
         explosion,
     };
 
+    let player_fire: Handle<AudioSource> = asset_server.load("sounds/playerFire.ogg");
+    let player_dies: Handle<AudioSource> = asset_server.load("sounds/playerDies.ogg");
+    let alien_fire: Handle<AudioSource> = asset_server.load("sounds/alienFire.ogg");
+    let alien_dies: Handle<AudioSource> = asset_server.load("sounds/alienDies.ogg");
+
     *scene_sounds = SceneSounds {
-        player_fire: asset_server.load("sounds/playerFire.ogg"),
-        player_dies: asset_server.load("sounds/playerDies.ogg"),
-        alien_fire: asset_server.load("sounds/alienFire.ogg"),
-        alien_dies: asset_server.load("sounds/alienDies.ogg"),
+        player_fire,
+        player_dies,
+        alien_fire,
+        alien_dies,
     }
 }
 
 fn load_background(
     mut commands: Commands,
     mut window: Query<&mut Window>,
-    scene_assets: Res<SceneAssets>,
+    // scene_assets: Res<SceneAssets>,
+    asset_server: Res<AssetServer>,
 ) {
     let mut window = window.single_mut();
     window.enabled_buttons = EnabledButtons {
@@ -165,7 +148,7 @@ fn load_background(
                     custom_size: Some(Vec2::new(window.width(), window.height())),
                     ..default()
                 },
-                texture: scene_assets.background.image.clone_weak(),
+                texture: asset_server.load("background_space.png"),
                 transform: Transform::from_xyz(window.width() * i as f32, 0.0, -1.0),
                 ..default()
             },
@@ -292,6 +275,7 @@ fn music(mut commands: Commands, asset_server: Res<AssetServer>) {
         source: asset_server.load("music/alienSpaceShooter.ogg"),
         settings: PlaybackSettings {
             mode: bevy::audio::PlaybackMode::Loop,
+            volume: Volume::new(0.5),
             ..default()
         },
         ..default()
